@@ -1,0 +1,163 @@
+﻿var AjaxServer = '/api/data.aspx?callback=?';
+$(document).ready(function () {
+    //图片浏览器关闭按钮
+    $(".s_close_ppt").click(function () {
+        $("#pptImg-bg").addClass("ms-none");
+    });
+    $('.OtherApp').click(function () {
+        $('.titlearrow').toggleClass("titlearrowdown");
+        $('.OtherList').toggle();
+    });
+    //隐藏过长介绍
+    var autoheight = $("#viewcontent").get(0).clientHeight;
+    $("#autoheight").val(autoheight);
+    if (autoheight <= 360) {
+        $("#readMore").hide();
+    }
+    else {
+        $("#viewcontent").addClass("h130");
+    }
+    $('#posts_box').click(function () {
+        $.getScript('/js/jquery.raty.min.js', function () {
+            $('#star').raty({
+                hints: ["非常糟糕", "普普通通", "一切挺好", "非常满意", "十分完美"],
+                target: '#hint',
+                targetKeep: true,
+                path: "/images",
+                click: function (score) {
+                    $("input[name='Star']").val(score);
+                }
+            }); 
+        });
+    });
+});
+//显示全部简介
+function more_content() {
+    var text = $("#showmore").html();
+    if (text == "载入更多") {
+        $("#viewcontent").animate({ height: $("#autoheight").val() }, "slow");
+        $("#showmore").html("隐藏更多");
+    }
+    else {
+        $("#viewcontent").animate({ height: '366' }, "slow");
+        $("#showmore").html("载入更多");
+    }
+}
+//详细页切换显示内容
+function show_content(id) {
+    $(".DetailNav li a").removeClass();
+    $(".display_box").hide("slow");
+    $("#" + id).addClass("current");
+    $("." + id).show("slow");
+}
+//添加评论
+function AddComment() {
+    var ReContent = $(".commentText").val();
+    var FileId= $("#FileId").text();
+    var ClassId= $("#ClassId").text();
+    var Star = $("input[name='Star']").val();
+    if (ReContent == '') {
+        alert("评论内容不能为空"); //$.dialog.tips("评论内容不能为空。");
+        return false;
+    }
+    if (ReContent.indexOf("http") > 0 || ReContent.indexOf(".com") > 0 || ReContent.indexOf(".cn") > 0 || ReContent.indexOf(".net") > 0) {
+        alert("评论中禁止发网址。");
+        return false;
+    }
+    //判断内容有没重复
+    var OldComment = $.cookies.get('OldComment');
+    if (OldComment != null && OldComment.indexOf("|" + ReContent + "|") >= 0) {
+        alert("请勿重复提交!");
+        return false;
+    }
+    //设定最短提交时间 
+    var PostTime = $.cookies.get('PostTime');
+    if (PostTime != null) {
+        alert('亲休息会，您发的太快了!');
+        return false;
+    }
+    else {
+        //更新最后提交时间
+        expireDate = new Date();
+        expireDate.setTime(expireDate.getTime() + (20 * 1000));//保留30秒
+        $.cookies.set('PostTime', '0', { expiresAt: expireDate });
+    }
+    $.getJSON(AjaxServer, {
+        Act: 'AddComment',
+        FileId: $("#FileId").text(),
+        Star: $("input[name='Star']").val(),
+        ReContent: ReContent
+    }, function (json) {
+        if (json.BackInfo == "Success") {
+            listr='<li><h3 class="titleArea"><em>我说：</em>'
+            if (Star > 0){
+                listr+='<em class="start start'+Star+' r"></em>'
+            }
+            listr+='</h3><div class="itemIntroBox">'+ReContent+'<span class="time">刚刚</span></div></li>'
+            $(".comment_lists1 ul").prepend(listr);
+            $('#pltsm').html('发表成功'); //alert('评论成功。');
+
+            $(".commentText").val("");
+            //防止重复评论
+            expireDate = new Date();
+            expireDate.setTime(expireDate.getTime() + (10 * 60 * 1000));//保留十分钟
+            if (OldComment == null) {
+                $.cookies.set('OldComment', "|" + ReContent + "|", { expiresAt: expireDate });
+            }
+            else {
+                $.cookies.set('OldComment', OldComment + ReContent + "|", { expiresAt: expireDate });
+            }
+        }
+        else {
+            alert(json.BackInfo);
+        };
+    });
+}
+
+//评论
+var repage=1//评论初始页码
+function more_comment() {
+    var listr = "";
+    var FileId= $("#FileId").text();
+    var ClassId = $("#ClassId").text();
+    $.getJSON(AjaxServer, {
+            Act: 'LoadComment',
+            page: ++repage,
+            FileId: FileId,
+            ClassId: ClassId
+    }, function (json) {
+        if (json.BackInfo != "Fail") {
+            var UserId=$("#UserId").text();
+            $.each(json.Comment, function (index, item) {
+		if(item.ContentT.length == 0)
+                	listr+='<li><h3 class="titleArea"><em>'+item.Nickname+'说：</em></h3><div class="itemIntroBox">'+item.Content+'<span class="time">'+item.PostDate+'</span></div></li>';
+		else
+                	listr+='<li><h3 class="titleArea"><em>'+item.Nickname+'说：</em></h3><div class="itemIntroBox">'+item.Content+'<p class="plxstext"><b>小尚：</b>'+ item.ContentT +'</p><span class="time">'+item.PostDate+'</span></div></li>';
+            });
+            if (json.Comment.length < 10) {
+                $('.moreItem').hide(1000);
+            }
+            $('#commentlist').append(listr);
+            $('#commentlist').show('slow');
+        }else
+            $('.moreItem').hide(1000);
+    });
+}
+function showpic(Screenshot, titlestr) {
+    arrPic = Screenshot.split('|');
+    $("#jietu_ul").text("");
+    $.getScript('/js/ai.js');
+    $.getScript('/js/slip-min.js', function ()
+    {
+        for (var i = 0; i < arrPic.length; i++) {
+            $("#jietu_ul").append("<li><div class='mWrap'><span class='amp'></span><img data-original='" + arrPic[i] + "' src='/images/loadimg.png' class='img jimg' alt='" + titlestr + "'></div></li>");
+        }
+        $.getScript('/js/page.js');
+    }); 
+    
+}
+//过滤特殊字符
+function showsearch() {
+    $('.swrap').toggle();
+}
+

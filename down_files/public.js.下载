@@ -1,0 +1,169 @@
+﻿var AjaxServer = '/Ajax.aspx?callback=?';
+$(document).ready(function () {
+    //加载图片
+    $("img").lazyload({ threshold: 100, effect: "fadeIn", failure_limit: 10 });
+    $('.goSearch').click(function () {
+        var key = $("input[name='q']").val();
+        if (key == "")
+        {
+            alert('请输入搜索关键字');
+            return false;
+        }
+        if (key.length < 2) {
+            alert("您输入的关键字太短");
+            return false;
+        }
+        var Searchtime = $.cookies.get('Searchtime');
+        if (Searchtime != null) {
+            alert("亲休息会，您搜索的太快了!");
+            return false;
+        }
+        else {
+            expireDate = new Date();
+            expireDate.setTime(expireDate.getTime() + (10 * 1000));//保留10秒钟
+            $.cookies.set('Searchtime', '0', { expiresAt: expireDate });
+        }
+        window.location.href = "/" + $("#Class").val() + "/default/all/normal/0/1/?key=" + key;
+    });
+});
+
+//获取本地下载地址
+function GetFileUrl(Id) {
+    $.getJSON(AjaxServer,
+    {
+        Act: 'FileDown',
+        FileId: Id
+    }, function (json) {
+        window.location.href = json.FileLink;
+        }
+    );
+}
+
+//判断substr字符串在str中出现的次数  isIgnore是否忽略大小写!
+function countSubstr(str, substr, isIgnore) {
+    var count;
+    var reg = "";
+    if (isIgnore == true) {
+        reg = "/" + substr + "/gi";
+    } else {
+        reg = "/" + substr + "/g";
+    }
+    reg = eval(reg);
+    if (str.match(reg) == null) {
+        count = 0;
+    } else {
+        count = str.match(reg).length;
+    }
+    return count;
+}
+//检查输入内容长度
+// 获取字符显示宽度
+function getStringWidth(str) {
+    return (str.replace(/[^\x00-\xff]/g, '--').length);
+}
+//限制最大输入字数
+function checkTextLength(obj, length) {
+    var content = obj.value;
+    var l = getStringWidth(content);
+    var num = length - Math.ceil(l / 2);
+    if (num < 0) {
+        var result;
+        var r = /[^\x00-\xff]/g;
+        if (content.replace(r, "--").length > length * 2) {
+            var m = length;
+            for (var i = m; i < content.length; i++) {
+                if (content.substr(0, i).replace(r, "--").length >= length * 2) {
+                    result = content.substr(0, i);
+                    break;
+                }
+            }
+        }
+        obj.value = result;
+    }
+    setTimeout(checkTextLength, 500, obj, length);
+}
+//添加留言
+function AddGuestBook() {
+    var title = $("#GuestBookTitle").val();
+    var comment = $("#GuestBookContent").val();
+    //判空
+    if (title == '') {
+        alert("您还没写标题呢~~~");
+        return false;
+    }
+    if (comment == '') {
+        alert("写下您的留言吧，亲~~~");
+        return false;
+    }
+    //判断内容有没重复
+    comment1 = "|" + comment + "|";
+    var oldgb = $.cookies.get('oldgb');
+    if (oldgb != null && oldgb.indexOf(comment1) >= 0) {
+        alert("请勿重复提交!");
+        return false;
+    }
+    //判断是否提交太快 
+    var posttime = $.cookies.get('posttime');
+    if (posttime != null) {
+        alert("亲休息会，您发的太快了!");
+        return false;
+    }
+    jQuery.ajax({
+        type: 'POST',
+        url: '/Ajax.ashx',
+        data: {
+            Act: 'AddGuestBook',
+            Title: title,
+            Content: comment
+        },
+        dataType: 'Html',
+        success: function (data) {
+            alert("留言成功，感谢您对本站的支持，我们会尽快回复您！");
+
+            //检查重复保留十分钟
+            expireDate = new Date();
+            expireDate.setTime(expireDate.getTime() + (10 * 60 * 1000));
+            if (oldgb == null) {
+                $.cookies.set('oldgb', comment1, { expiresAt: expireDate });
+            }
+            else {
+                comment1 = oldgb + comment1;
+                $.cookies.set('oldgb', comment1, { expiresAt: expireDate });
+            }
+            //设定可重复提交的时间
+            expireDate.setTime(expireDate.getTime() + (60 * 1000));//保留1分钟1 * 60 * 1000
+            $.cookies.set('posttime', '0', { expiresAt: expireDate });
+        }
+    });
+}
+//退出登录
+function loginout() {
+    $.dialog.confirm('您确定要退出登录吗？', function () {
+        $.getJSON(AjaxServer,
+        {
+            Act: 'Logout'
+        }, function (json) {
+            if (json.BackInfo == 'Success') {
+                location.href = "/";
+            }
+        });
+    });
+}
+//过滤特殊字符
+function stripscript(s) {
+    var str = s.value
+    var pattern = new RegExp("[`~!@#$^&*()=|{}';',\\[\\].<>/?~@#……&*|{}]")
+    var rs = "";
+    for (var i = 0; i < str.length; i++) {
+        rs = rs + str.substr(i, 1).replace(pattern, '');
+    }
+    s.value = rs;
+    setTimeout(stripscript, 1000, s);
+}
+//只能输入数字
+function chkint(data) {
+    if ($(data).val() != "" && !/^\d+$/.test($(data).val())) {
+        alert("只能输入数字");
+        $(data).focus();
+    }
+};
